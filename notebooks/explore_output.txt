@@ -1,0 +1,34 @@
+
+============================================================
+fact_sd_timesheet_cost
+============================================================
+                           column_name                    data_type
+0                  netsuite_project_id                       bigint
+1                        sd_project_id            character varying
+2              netsuite_project_number            character varying
+3                              user_id                      integer
+4                             category            character varying
+5                         actual_hours             double precision
+6                       timesheet_date  timestamp without time zone
+7                      user_first_name            character varying
+8                       user_last_name            character varying
+9          role_name_at_timesheet_date            character varying
+10  user_role_status_at_timesheet_date            character varying
+11     external_rate_at_timesheet_date                      integer
+12             timesheet_external_cost             double precision
+13     internal_rate_at_timesheet_date                     smallint
+14             timesheet_internal_cost             double precision
+15                accounting_period_id                       bigint
+16        accounting_period_start_date                         date
+17       accounting_period_ending_date                         date
+18         accounting_period_closed_at     timestamp with time zone
+19         accounting_period_is_posted                      boolean
+20         accounting_period_is_closed                      boolean
+
+Sample:
+   netsuite_project_id sd_project_id netsuite_project_number  user_id               category  actual_hours timesheet_date user_first_name user_last_name  role_name_at_timesheet_date user_role_status_at_timesheet_date  external_rate_at_timesheet_date  timesheet_external_cost  internal_rate_at_timesheet_date  timesheet_internal_cost  accounting_period_id accounting_period_start_date accounting_period_ending_date accounting_period_closed_at  accounting_period_is_posted  accounting_period_is_closed
+0               133238      PRJ53001                PRJ53001     1061  Billable - Operations           0.0     2024-11-25               A          Jatin  Ops - Field Management (MK)                             active                              137                      0.0                               47                      0.0                   135                   2024-11-01                    2024-11-30   2026-01-28 10:23:51+00:00                         True                         True
+1               133238      PRJ53001                PRJ53001     1061  Billable - Operations           0.0     2024-11-26               A          Jatin  Ops - Field Management (MK)                             active                              137                      0.0                               47                      0.0                   135                   2024-11-01                    2024-11-30   2026-01-28 10:23:51+00:00                         True                         True
+2               133238      PRJ53001                PRJ53001     1061  Billable - Operations           0.0     2024-11-27               A          Jatin  Ops - Field Management (MK)                             active                              137                      0.0                               47                      0.0                   135                   2024-11-01                    2024-11-30   2026-01-28 10:23:51+00:00                         True                         True
+3               133238      PRJ53001                PRJ53001     1061  Billable - Operations           0.0     2024-11-28               A          Jatin  Ops - Field Management (MK)                             active                              137                      0.0                               47                      0.0                   135                   2024-11-01                    2024-11-30   2026-01-28 10:23:51+00:00                         True                         True
+4               133238      PRJ53001                PRJ53001     1061  Billable - Operations           0.0     2024-11-29               A          Jatin  Ops - Field Management (MK)                             active                              137                      0.0                               47                      0.0                   135                   2024-11-01                    2024-11-30   2026-01-28 10:23:51+00:00                         True                         True

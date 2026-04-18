@@ -1,0 +1,16 @@
+SELECT
+    accounting_period_start_date,
+    accounting_period_id,
+    netsuite_project_id,
+    CASE
+        WHEN role_name_at_timesheet_date ILIKE ANY(ARRAY['%%VP%%','%%SVP%%','%%Director%%','%%Manager%%'])
+        THEN 'Research Labor'
+        WHEN role_name_at_timesheet_date ILIKE ANY(ARRAY['%%Field%%','%%QA%%','%%Programming%%','%%Ops%%','%%Dashboard%%'])
+        THEN 'Ops Labor'
+        ELSE 'Other Labor'
+    END AS labor_type,
+    SUM(timesheet_external_cost) AS labor_cost
+FROM core.fact_sd_timesheet_cost
+WHERE accounting_period_is_posted = TRUE
+GROUP BY 1,2,3,4
+ORDER BY accounting_period_start_date

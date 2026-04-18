@@ -1,15 +1,23 @@
-from src.models.financials import get_revenue, get_profitability, get_pipeline, get_targets
-from pathlib import Path
 import pandas as pd
-from src.db.connection import get_engine
-
-engine = get_engine()
+from src.models.financials import get_gross_margin
 
 if __name__ == "__main__":
-    print("\n--- Profitability with People Costs (2024+) ---")
-    sql = (Path("src/queries") / "profitability.sql").read_text()
-    df = pd.read_sql(sql, engine)
-    df["accounting_period_start_date"] = pd.to_datetime(df["accounting_period_start_date"])
-    df = df[df["accounting_period_start_date"].dt.year >= 2024]
-    df = df[df["revenue_usd"] > 0]
-    print(df.head(10))
+
+    print("\n--- Gross Margin (2025) ---")
+    df_gm = get_gross_margin()
+    print(f"Rows: {len(df_gm)}")
+
+    totals = df_gm[df_gm["accounting_period_start_date"].dt.year == 2025].agg({
+        "revenue":        "sum",
+        "cogs":           "sum",
+        "labour":         "sum",
+        "be_allocation":  "sum",
+        "ae_allocation":  "sum",
+        "rta_allocation": "sum",
+        "gross_margin":   "sum"
+    }).round(0)
+
+    print(totals)
+    print(f"GM%: {totals['gross_margin']/totals['revenue']*100:.1f}%")
+    print(f"Contribution: ${(totals['gross_margin']-totals['labour'])/1e6:.1f}M")
+    print(f"CM%: {(totals['gross_margin']-totals['labour'])/totals['revenue']*100:.1f}%")

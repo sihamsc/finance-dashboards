@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from src.utils.filters import clean_for_visuals, rank_window_options, rank_window_slice
+from src.utils.filters import clean_for_visuals, rank_window_options, rank_window_slice, remove_service_line_filters
 from src.utils.formatters import pct_text, fmt_m
 from src.utils.helpers import service_line_selector_block
 
@@ -10,6 +10,7 @@ def render_fixed_cost(ctx):
     palette = ctx["palette"]
     PT = ctx["PT"]
     df_curr = ctx["df_curr"]
+    df_curr_decomp = ctx["df_curr_decomp"]
     fixed_cost = ctx["fixed_cost"]
 
     BS = palette["blue_scale"]
@@ -47,23 +48,25 @@ def render_fixed_cost(ctx):
     st.plotly_chart(fig_donut, use_container_width=True)
 
     st.markdown('<div class="section-header">Fixed Cost Decomposition</div>', unsafe_allow_html=True)
+    df_service_view = clean_for_visuals(df_curr_decomp)
     col_fsl, col_fcl = st.columns(2)
 
     with col_fsl:
-        fc_sl = clean_for_visuals(df_curr).groupby("service_line_name").agg(revenue=("revenue", "sum"), fixed_cost=("fixed_cost", "sum")).reset_index()
-        fc_sl["pct_of_rev"] = (fc_sl["fixed_cost"] / fc_sl["revenue"].replace(0, float("nan")) * 100).round(1)
-        fc_sl = fc_sl[fc_sl["fixed_cost"] > 0].sort_values("fixed_cost", ascending=True)
+        fc_ssl = df_service_view.groupby("sub_service_line_name").agg(revenue=("revenue", "sum"), fixed_cost=("fixed_cost", "sum")).reset_index()
+        fc_ssl = fc_ssl[fc_ssl["sub_service_line_name"] != "(blank)"]
+        fc_ssl["pct_of_rev"] = (fc_ssl["fixed_cost"] / fc_ssl["revenue"].replace(0, float("nan")) * 100).round(1)
+        fc_ssl = fc_ssl[fc_ssl["fixed_cost"] > 0].sort_values("fixed_cost", ascending=True)
 
         fig = px.bar(
-            fc_sl,
+            fc_ssl,
             x="fixed_cost",
-            y="service_line_name",
+            y="sub_service_line_name",
             orientation="h",
             color="fixed_cost",
             color_continuous_scale=BS,
-            text=fc_sl["pct_of_rev"].map(pct_text),
-            title="Fixed Cost by Service Line",
-            labels={"fixed_cost": "Fixed Cost ($)", "service_line_name": ""},
+            text=fc_ssl["pct_of_rev"].map(pct_text),
+            title="Fixed Cost by Sub Service Line",
+            labels={"fixed_cost": "Fixed Cost ($)", "sub_service_line_name": ""},
         )
         fig.update_traces(textposition="outside")
         fig.update_layout(**PT, coloraxis_showscale=False, title_font_color="#cbd5e1", height=420)
@@ -97,7 +100,7 @@ def render_fixed_cost(ctx):
 
     st.markdown('<div class="section-header">Fixed Cost Drilldown — Sub Service Lines</div>', unsafe_allow_html=True)
     service_line_selector_block(
-        agg_df=df_curr,
+        agg_df=df_service_view,
         selected_metric_col="fixed_cost",
         revenue_col="revenue",
         title_prefix="Fixed Cost",

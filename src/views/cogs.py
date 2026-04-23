@@ -1,7 +1,7 @@
 import plotly.express as px
 import streamlit as st
 
-from src.utils.filters import clean_for_visuals, rank_window_options, rank_window_slice
+from src.utils.filters import clean_for_visuals, rank_window_options, rank_window_slice, remove_service_line_filters
 from src.utils.formatters import pct_text
 from src.utils.helpers import service_line_selector_block
 
@@ -9,14 +9,17 @@ def render_cogs(ctx):
     palette = ctx["palette"]
     PT = ctx["PT"]
     df_curr = ctx["df_curr"]
+    df_curr_decomp = ctx["df_curr_decomp"]
     BS = palette["blue_scale"]
 
     st.markdown('<div class="section-header">COGS Decomposition</div>', unsafe_allow_html=True)
 
+    df_service_view = clean_for_visuals(df_curr_decomp)
+
     col_csl, col_ccl = st.columns(2)
 
     with col_csl:
-        cogs_sl = clean_for_visuals(df_curr).groupby("service_line_name").agg(revenue=("revenue", "sum"), cogs=("cogs", "sum")).reset_index()
+        cogs_sl = clean_for_visuals(df_curr_decomp).groupby("service_line_name").agg(revenue=("revenue", "sum"), cogs=("cogs", "sum")).reset_index()
         cogs_sl["pct_of_rev"] = (cogs_sl["cogs"] / cogs_sl["revenue"].replace(0, float("nan")) * 100).round(1)
         cogs_sl = cogs_sl[cogs_sl["cogs"] > 0].sort_values("cogs", ascending=True)
 
@@ -63,7 +66,7 @@ def render_cogs(ctx):
 
     st.markdown('<div class="section-header">COGS Drilldown — Sub Service Lines</div>', unsafe_allow_html=True)
     service_line_selector_block(
-        agg_df=df_curr,
+        agg_df=df_service_view,
         selected_metric_col="cogs",
         revenue_col="revenue",
         title_prefix="COGS",

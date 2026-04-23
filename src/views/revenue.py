@@ -1,13 +1,14 @@
 import plotly.express as px
 import streamlit as st
 
-from src.utils.filters import clean_for_visuals, rank_window_options, rank_window_slice, EXCL
+from src.utils.filters import clean_for_visuals, rank_window_options, rank_window_slice, remove_service_line_filters, EXCL
 from src.utils.helpers import service_line_selector_block
 
 def render_revenue(ctx):
     palette = ctx["palette"]
     PT = ctx["PT"]
     df_curr = ctx["df_curr"]
+    df_curr_decomp = ctx["df_curr_decomp"]
     df_lab_curr = ctx["df_lab_curr"]
 
     SC = palette["series"]
@@ -15,10 +16,12 @@ def render_revenue(ctx):
 
     st.markdown('<div class="section-header">Revenue Decomposition</div>', unsafe_allow_html=True)
 
+    df_service_view = clean_for_visuals(df_curr_decomp)
+
     col_rsl, col_rcl = st.columns(2)
 
     with col_rsl:
-        rv_sl = clean_for_visuals(df_curr).groupby("service_line_name")["revenue"].sum().reset_index()
+        rv_sl = clean_for_visuals(df_curr_decomp).groupby("service_line_name")["revenue"].sum().reset_index()
         rv_sl = rv_sl[rv_sl["revenue"] > 0].sort_values("revenue", ascending=True)
 
         fig = px.bar(
@@ -59,7 +62,7 @@ def render_revenue(ctx):
 
     st.markdown('<div class="section-header">Revenue Drilldown — Sub Service Lines</div>', unsafe_allow_html=True)
     service_line_selector_block(
-        agg_df=df_curr,
+        agg_df=df_service_view,
         selected_metric_col="revenue",
         revenue_col="revenue",
         title_prefix="Revenue",

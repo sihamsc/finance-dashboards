@@ -65,3 +65,32 @@ def rank_window_options(n_items, window_size=15):
     if n_items <= 0:
         return [1]
     return list(range(1, n_items + 1, window_size))
+
+def remove_service_line_filters(df, ctx, clean=True, client_col="top_level_parent_customer_name"):
+    """
+    Use this when rendering charts grouped by service_line_name.
+
+    It intentionally ignores the global Service Line / Sub Service Line filters,
+    while still respecting:
+    - Vertical
+    - Client
+
+    This keeps decomposition charts meaningful even when the sidebar has a
+    specific service line selected.
+    """
+    d = df.copy()
+    filters = ctx.get("filters", {})
+
+    selected_vertical = filters.get("selected_vertical", "All")
+    selected_customer = filters.get("selected_customer", "All")
+
+    if selected_vertical != "All" and "vertical_name" in d.columns:
+        d = d[d["vertical_name"] == selected_vertical]
+
+    if selected_customer != "All" and client_col in d.columns:
+        d = d[d["top_level_parent_customer_name"] == selected_customer]
+
+    if clean:
+        d = clean_for_visuals(d, client_col=client_col)
+
+    return d

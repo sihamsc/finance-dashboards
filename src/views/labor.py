@@ -1,7 +1,7 @@
 import plotly.express as px
 import streamlit as st
 
-from src.utils.filters import clean_for_visuals, rank_window_options, rank_window_slice
+from src.utils.filters import clean_for_visuals, rank_window_options, rank_window_slice, remove_service_line_filters
 from src.utils.formatters import pct_text, safe_pct, kpi
 from src.utils.helpers import service_line_selector_block
 
@@ -10,12 +10,17 @@ def render_labor(ctx):
     PT = ctx["PT"]
     df_curr = ctx["df_curr"]
     df_lab_curr = ctx["df_lab_curr"]
+    df_curr_decomp = ctx["df_curr_decomp"]
+    df_lab_curr_decomp = ctx["df_lab_curr_decomp"]
     df_lab_prior = ctx["df_lab_prior"]
     rev = ctx["rev"]
 
     BS = palette["blue_scale"]
 
     st.markdown('<div class="section-header">Labor Overview</div>', unsafe_allow_html=True)
+
+    df_service_labor_view = df_lab_curr_decomp.copy()
+    df_service_revenue_view = df_curr_decomp.copy()
 
     total_labor = df_lab_curr["labour_cost"].sum()
     total_labor_py = df_lab_prior["labour_cost"].sum()
@@ -31,8 +36,8 @@ def render_labor(ctx):
     col_lsl, col_lcl = st.columns(2)
 
     with col_lsl:
-        labor_sl = clean_for_visuals(df_lab_curr).groupby("service_line_name").agg(labor=("labour_cost", "sum")).reset_index()
-        rev_sl = clean_for_visuals(df_curr).groupby("service_line_name")["revenue"].sum().reset_index()
+        labor_sl = clean_for_visuals(df_service_labor_view).groupby("service_line_name").agg(labor=("labour_cost", "sum")).reset_index()
+        rev_sl = clean_for_visuals(df_service_revenue_view).groupby("service_line_name")["revenue"].sum().reset_index()
         labor_sl = labor_sl.merge(rev_sl, on="service_line_name", how="left")
         labor_sl["pct_of_rev"] = (labor_sl["labor"] / labor_sl["revenue"].replace(0, float("nan")) * 100).round(1)
         labor_sl = labor_sl[labor_sl["labor"] > 0].sort_values("labor", ascending=True)
@@ -83,8 +88,8 @@ def render_labor(ctx):
     st.markdown('<div class="section-header">Labor Drilldown — Sub Service Lines</div>', unsafe_allow_html=True)
 
     labor_drill_base = (
-        df_lab_curr.merge(
-            df_curr[["yr", "month_num", "service_line_name", "sub_service_line_name", "top_level_parent_customer_name", "revenue"]]
+        df_service_labor_view.merge(
+            df_service_revenue_view[["yr", "month_num", "service_line_name", "sub_service_line_name", "top_level_parent_customer_name", "revenue"]]
             .groupby(
                 ["yr", "month_num", "service_line_name", "sub_service_line_name", "top_level_parent_customer_name"],
                 as_index=False

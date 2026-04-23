@@ -248,6 +248,15 @@ filters = {
     "selected_customer": selected_customer,
 }
 
+# Base filters for decomposition charts:
+# keep time + vertical + client, but ignore service line / sub service line
+decomp_filters = {
+    "selected_sl": "All",
+    "selected_ssl": "All",
+    "selected_vertical": selected_vertical,
+    "selected_customer": selected_customer,
+}
+
 
 # ------------------------------------------------------------
 # Current/prior dataframes
@@ -264,10 +273,25 @@ period_frames = build_period_frames(
     filters=filters,
 )
 
+decomp_period_frames = build_period_frames(
+    df_gm,
+    df_lab,
+    is_rolling=is_rolling,
+    curr_ym=curr_ym,
+    prior_ym=prior_ym,
+    selected_year=selected_year,
+    m_from=m_from,
+    m_to=m_to,
+    filters=decomp_filters,
+)
+
 df_curr = period_frames["df_curr"]
 df_prior = period_frames["df_prior"]
 df_lab_curr = period_frames["df_lab_curr"]
 df_lab_prior = period_frames["df_lab_prior"]
+
+df_curr_decomp = decomp_period_frames["df_curr"]
+df_lab_curr_decomp = decomp_period_frames["df_lab_curr"]
 
 
 # ------------------------------------------------------------
@@ -354,6 +378,8 @@ context = {
     "df_prior": df_prior,
     "df_lab_curr": df_lab_curr,
     "df_lab_prior": df_lab_prior,
+    "df_curr_decomp": df_curr_decomp,
+    "df_lab_curr_decomp": df_lab_curr_decomp,
     "df_pipe": df_pipe,
     "df_tgt": df_tgt,
     "selected_year": selected_year,

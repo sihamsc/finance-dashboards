@@ -17,8 +17,9 @@ def _run(filename):
 def get_gross_margin(year_from: int = 2024) -> pd.DataFrame:
     df = _run("5_gross_margin.sql")
     df["accounting_period_start_date"] = pd.to_datetime(df["accounting_period_start_date"])
-    df = df[df["accounting_period_start_date"].dt.year >= year_from]
-    return df
+    # drop rows where date is null (orphaned allocation rows with no base match)
+    df = df.dropna(subset=["accounting_period_start_date"])
+    return df[df["accounting_period_start_date"].dt.year >= year_from]
 
 def get_labour(year_from: int = 2024) -> pd.DataFrame:
     df = _run("6_labour_by_type.sql")
@@ -33,3 +34,8 @@ def get_targets() -> pd.DataFrame:
     df = _run("8_targets.sql")
     df["quarter_start_date"] = pd.to_datetime(df["quarter_start_date"])
     return df
+
+def get_labour_by_client(year_from: int = 2024) -> pd.DataFrame:
+    df = _run("9_labour_by_client_service_line.sql")
+    df["accounting_period_start_date"] = pd.to_datetime(df["accounting_period_start_date"])
+    return df[df["accounting_period_start_date"].dt.year >= year_from]

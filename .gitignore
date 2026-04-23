@@ -1,4 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Streamlit / local secrets
 .streamlit/secrets.toml
 .env
-.venv/
-__pycache__/
+
+# Excel temp / data junk
+~$*.xlsx
+
+# Test / cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

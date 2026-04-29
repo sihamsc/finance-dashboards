@@ -1,5 +1,5 @@
 """
-Shared constants for thresholds and display options used across views.
+Shared constants for thresholds, display options, and per-metric accent colors.
 Centralising these avoids magic numbers scattered across the codebase.
 """
 
@@ -34,6 +34,17 @@ CM_SEGMENT_DISPLAY = {
     "High Rev / Low Contribution":  "Volume — Reduce Labor",
     "Low Rev / Low Contribution":   "At Risk — Review",
 }
+# Per-metric accent colors — used for bar fills, trend lines, and narrative borders.
+# Keeping them here ensures every tab referencing the same metric uses the same hue.
+METRIC_COLOR = {
+    "revenue":      "#60a5fa",   # blue
+    "cogs":         "#f87171",   # red
+    "fixed_cost":   "#a78bfa",   # purple
+    "labor":        "#fb923c",   # orange
+    "gross_margin": "#4ade80",   # green
+    "contribution": "#d7f34a",   # MarketCast yellow
+}
+
 SEGMENT_COLORS = {
     "Stars — Protect & Grow":   "#4ade80",
     "Rising — Invest & Scale":  "#60a5fa",

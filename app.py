@@ -16,12 +16,11 @@
 #   2. Revenue
 #   3. COGS
 #   4. Fixed Cost
-#   5. Margin
-#   6. Labor
-#   7. Contribution
-#   8. Insight Explorer
-#   9. Pipeline
-#  10. Targets
+#   5. Labor
+#   6. Profitability
+#   7. Insight Explorer
+#   8. Pipeline
+#   9. Targets
 # ============================================================
 
 import base64
@@ -402,13 +401,13 @@ context = {
 # ------------------------------------------------------------
 # Tabs
 # ------------------------------------------------------------
-tab_ov, tab_rev, tab_cogs, tab_fc, tab_profit, tab_labor, tab_explorer, tab_pipe, tab_tgt = st.tabs([
+tab_ov, tab_rev, tab_cogs, tab_fc, tab_labor, tab_profit, tab_explorer, tab_pipe, tab_tgt = st.tabs([
     "Overview",
     "Revenue",
     "COGS",
     "Fixed Cost",
-    "Profitability",
     "Labor",
+    "Profitability",
     "Insight Explorer",
     "Pipeline",
     "Targets",
@@ -426,11 +425,11 @@ with tab_cogs:
 with tab_fc:
     render_fixed_cost(context)
 
-with tab_profit:
-    render_profitability(context)
-
 with tab_labor:
     render_labor(context)
+
+with tab_profit:
+    render_profitability(context)
 
 with tab_explorer:
     render_explorer(context)

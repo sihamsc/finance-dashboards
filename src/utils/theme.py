@@ -6,6 +6,7 @@ THEME_OPTIONS = [
     "Grey + accent",
 ]
 
+
 def get_theme_palette(name: str):
     themes = {
         "Executive / minimal": {
@@ -64,18 +65,25 @@ def get_theme_palette(name: str):
             "accent_scale": ["#334155", "#d7f34a"],
         },
     }
-    return themes[name]
+
+    return themes.get(name, themes["Executive / minimal"])
+
 
 PT = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="DM Sans", color="#94a3b8", size=11),
+    font=dict(
+        family="DM Sans",
+        color="#94a3b8",
+        size=11,
+    ),
     xaxis=dict(
         gridcolor="#141924",
         linecolor="#1b2230",
         tickcolor="#1b2230",
         tickfont=dict(color="#cbd5e1"),
         title_font=dict(color="#cbd5e1"),
+        zeroline=False,
     ),
     yaxis=dict(
         gridcolor="#141924",
@@ -83,10 +91,33 @@ PT = dict(
         tickcolor="#1b2230",
         tickfont=dict(color="#cbd5e1"),
         title_font=dict(color="#cbd5e1"),
-    ),
-    legend=dict(
-        bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#cbd5e1", size=10),
+        zeroline=False,
     ),
     margin=dict(l=0, r=0, t=40, b=0),
 )
+
+
+def plotly_layout(**overrides):
+    """
+    Safely merge Plotly layout overrides with the global theme.
+
+    Use this instead of:
+        fig.update_layout(**PT, legend=...)
+
+    Example:
+        fig.update_layout(
+            **plotly_layout(
+                barmode="group",
+                legend=dict(orientation="v", x=1.02, y=1),
+            )
+        )
+    """
+    layout = PT.copy()
+
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(layout.get(key), dict):
+            layout[key] = {**layout[key], **value}
+        else:
+            layout[key] = value
+
+    return layout

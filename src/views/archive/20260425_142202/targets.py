@@ -1,18 +1,3 @@
-"""
-Targets tab — annual revenue targets vs actuals with quarterly pacing.
-
-Sections:
-  1. KPI row: annual target, actual revenue vs target, attainment %, team count
-  2. Remaining-year run-rate card
-  3. Quarterly pacing chart (target bars + flat actual line)
-  4. Quarterly targets bar + team targets bar
-  5. Detail table with CSV download
-  6. Data gap flags (known data limitations)
-
-Note: quarterly actuals are approximated as annual revenue / 4 because detailed
-quarterly actuals are not available as a separate dataset.
-"""
-
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
@@ -21,11 +6,6 @@ from src.utils.formatters import safe_pct, kpi, fmt_m
 
 
 def render_targets(ctx):
-    """Render the Targets tab.
-
-    Target data is available from Q1 2025 only. When dty is empty the tab
-    shows an info message and skips the charts but still renders data-gap flags.
-    """
     PT            = ctx["PT"]
     palette       = ctx["palette"]
     df_tgt        = ctx["df_tgt"]
@@ -35,7 +15,7 @@ def render_targets(ctx):
     BS = palette["blue_scale"]
     LC = palette["line_current"]
 
-    st.markdown('<div class="section-header">Revenue vs Target</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Targets vs Actuals</div>', unsafe_allow_html=True)
 
     dty          = df_tgt[df_tgt["yr"]==selected_year].copy()
     tt           = dty["target_usd"].sum() if not dty.empty else 0
@@ -72,7 +52,7 @@ def render_targets(ctx):
         st.info(f"No target data for {selected_year}. Targets only from Q1 2025.")
     else:
         # ── Quarterly pacing — target vs actual on same chart ─
-        st.markdown('<div class="section-header">Quarterly Pacing</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">Quarterly Pacing — Target vs Actual</div>', unsafe_allow_html=True)
 
         qt = (dty.assign(ql="Q"+dty["quarter_start_date"].dt.quarter.astype(str))
               .groupby(["ql","quarter_start_date"],as_index=False)["target_usd"]

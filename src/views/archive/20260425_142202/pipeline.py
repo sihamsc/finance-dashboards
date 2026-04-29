@@ -1,15 +1,3 @@
-"""
-Pipeline tab — deal pipeline overview and coverage vs annual target.
-
-Sections:
-  1. KPI row: total pipeline, deal count, avg deal size, coverage, remaining-target cover
-  2. Remaining-year run-rate card (how much revenue is still needed and at what monthly pace)
-  3. Pipeline by stage (horizontal bar)
-  4. Pipeline by service line (vertical bar)
-  5. Pipeline by vertical (conditional — only shown if 'vertical' column exists)
-  6. Pipeline detail table with CSV download
-"""
-
 import plotly.express as px
 import streamlit as st
 
@@ -18,11 +6,6 @@ from src.utils.formatters import kpi, fmt_m, safe_pct
 
 
 def render_pipeline(ctx):
-    """Render the Pipeline tab.
-
-    Deduplicates deals by deal_id before all aggregations to avoid double-counting
-    deals that span multiple rows in the source data.
-    """
     PT       = ctx["PT"]
     palette  = ctx["palette"]
     df_pipe  = ctx["df_pipe"]
@@ -31,7 +14,7 @@ def render_pipeline(ctx):
     rev      = ctx["rev"]
     BS = palette["blue_scale"]
 
-    st.markdown('<div class="section-header">Pipeline Summary</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Pipeline Overview</div>', unsafe_allow_html=True)
 
     dp = df_pipe.drop_duplicates("deal_id")
     if "service_line" in dp.columns:
@@ -120,7 +103,7 @@ def render_pipeline(ctx):
         st.plotly_chart(fig3, use_container_width=True)
 
     # ── Pipeline detail table ─────────────────────────────────
-    st.markdown('<div class="section-header">Deal Pipeline Detail</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Pipeline Detail</div>', unsafe_allow_html=True)
     ptbl = (dp.groupby(["deal_pipeline_stage_name","service_line","vertical"])
             .agg(deals=("deal_id","nunique"),value=("pipeline_value_usd","sum"))
             .reset_index().sort_values("value",ascending=False))

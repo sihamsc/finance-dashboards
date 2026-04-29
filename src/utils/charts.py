@@ -6,7 +6,7 @@ import streamlit as st
 from src.utils.filters import MONTH_MAP, ordered_month_axis_labels
 
 
-def render_treemap(df, label_col, value_col, title, color_scale, value_label):
+def render_treemap(df, label_col, value_col, title, color_scale, value_label, key=None):
     """Render a Plotly treemap of value_col broken down by label_col.
 
     Rows where value_col <= 0 are excluded so the treemap only shows
@@ -54,10 +54,10 @@ def render_treemap(df, label_col, value_col, title, color_scale, value_label):
         margin=dict(l=0, r=0, t=40, b=0),
         height=320,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=key)
 
 
-def render_bar(df, label_col, value_col, title, color_scale, value_label):
+def render_bar(df, label_col, value_col, title, color_scale, value_label, key=None):
     """Render a horizontal bar chart of value_col broken down by label_col.
 
     Positive bars use the theme accent colour; negative bars use red.
@@ -119,10 +119,10 @@ def render_bar(df, label_col, value_col, title, color_scale, value_label):
             zeroline=False,
         ),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=key)
 
 
-def render_index_chart(idx_df, title, PT):
+def render_index_chart(idx_df, title, PT, key=None):
     """Render a line chart of month-over-month index values vs prior year.
 
     Expects idx_df to have columns: month, index (where 100 = same as PY).
@@ -149,7 +149,7 @@ def render_index_chart(idx_df, title, PT):
     fig.update_layout(**PT, title_font_color="#cbd5e1", height=300)
     idx_max = idx_df["index"].max(skipna=True) if idx_df["index"].notna().any() else 150
     fig.update_yaxes(range=[0, max(150, idx_max * 1.15)])
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=key)
 
 
 def build_index_rows(ctx, curr_monthly, prior_monthly, metric_col):

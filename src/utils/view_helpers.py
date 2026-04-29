@@ -74,12 +74,38 @@ def inline_trend(
             ),
         )
         fig.update_yaxes(tickprefix="$", ticksuffix="M")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"{key_prefix}_raw_trend")
     else:
         curr_m  = curr_df.groupby(["yr", "month_num"])[value_col].sum().reset_index()
         prior_m = prior_df.groupby(["yr", "month_num"])[value_col].sum().reset_index()
         idx_df  = pd.DataFrame(build_index_rows(ctx, curr_m, prior_m, value_col))
-        render_index_chart(idx_df, "vs Prior Year — 100 = PY", pt)
+        render_index_chart(idx_df, "vs Prior Year — 100 = PY", pt, key=f"{key_prefix}_idx_trend")
+
+
+def client_tile_chart(df, label_col, value_col, n_show, accent, key, value_label=None):
+    """Treemap of top-N clients with an 'Other (N clients)' row for the tail.
+
+    Parameters
+    ----------
+    df      : full client df sorted descending by value_col
+    n_show  : int → keep top n and bucket the rest; None → show all (no Other)
+    """
+    value_label = value_label or value_col.replace("_", " ").title()
+    cs = [[0.0, "#07090e"], [1.0, accent]]
+
+    if n_show is not None and n_show < len(df):
+        top = df.head(n_show)[[label_col, value_col]].copy()
+        other_val = df.iloc[n_show:][value_col].sum()
+        if other_val > 0:
+            other_count = len(df) - n_show
+            other_row = pd.DataFrame([{label_col: f"Other ({other_count} clients)", value_col: other_val}])
+            tile_df = pd.concat([top, other_row], ignore_index=True)
+        else:
+            tile_df = top
+    else:
+        tile_df = df[[label_col, value_col]].copy()
+
+    render_treemap(tile_df, label_col, value_col, "", cs, value_label, key=key)
 
 
 def dist_chart(df, label_col, value_col, accent, pt, chart_type, key_suffix, value_label=None):
@@ -97,13 +123,13 @@ def dist_chart(df, label_col, value_col, accent, pt, chart_type, key_suffix, val
         st.info(f"No {value_label.lower()} data available.")
         return
 
-    if chart_type == "Treemap":
+    if chart_type == "Tile":
         # Reuse charts.render_treemap but we need a color_scale — use a two-stop scale
         # anchored on the accent color so the treemap matches the tab's color identity.
         from src.utils.charts import render_treemap
         # Build a minimal two-stop scale from near-black to accent
         cs = [[0.0, "#07090e"], [1.0, accent]]
-        render_treemap(d, label_col, value_col, "", cs, value_label)
+        render_treemap(d, label_col, value_col, "", cs, value_label, key=f"treemap_{key_suffix}")
     else:
         total = d[value_col].sum()
         d["_pct"] = (d[value_col] / total * 100).round(1) if total else 0

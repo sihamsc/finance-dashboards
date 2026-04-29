@@ -389,77 +389,29 @@ def render_overview(ctx):
         unsafe_allow_html=True,
     )
 
-    bridge_col1, bridge_col2 = st.columns(2)
-
-    with bridge_col1:
-        st.markdown('<div class="section-header">P&L Bridge — Current Period</div>', unsafe_allow_html=True)
-        wf = go.Figure(go.Waterfall(
-            orientation="v",
-            measure=["absolute", "relative", "relative", "total", "relative", "total"],
-            x=["Revenue", "COGS", "Fixed Cost", "Gross Margin", "Labor", "Contribution"],
-            y=[rev, -cogs, -fixed_cost, None, -labor, None],
-            connector={"line": {"color": "#243041"}},
-            increasing={"marker": {"color": WFP, "line": {"width": 0}}},
-            decreasing={"marker": {"color": WFN, "line": {"width": 0}}},
-            totals={"marker": {"color": WFT, "line": {"width": 0}}},
-            text=[
-                fmt_m(rev),
-                fmt_m(cogs),
-                fmt_m(fixed_cost),
-                f"{fmt_m(gm)} ({gm_pct:.1f}%)",
-                fmt_m(labor),
-                f"{fmt_m(contrib)} ({cm_pct:.1f}%)",
-            ],
-            textfont={"color": "#cbd5e1", "size": 10, "family": "DM Mono"},
-            textposition="outside",
-        ))
-        wf.update_layout(**PT, title="", showlegend=False, height=360)
-        st.plotly_chart(wf, use_container_width=True)
-
-    with bridge_col2:
-        st.markdown('<div class="section-header">YoY Change — What Drove the Shift?</div>', unsafe_allow_html=True)
-        rev_py    = ctx["rev_py"]
-        cogs_py   = ctx["cogs_py"]
-        fc_py     = ctx["fixed_cost_py"]
-        labor_py  = ctx["labor_py"]
-        contrib_py = ctx["contrib_py"]
-
-        rev_impact   = rev - rev_py
-        cogs_impact  = -(cogs - cogs_py)
-        fc_impact    = -(fixed_cost - fc_py)
-        labor_impact = -(labor - labor_py)
-
-        def _delta_text(v):
-            return f"+{fmt_m(v)}" if v >= 0 else fmt_m(v)
-
-        wf_yoy = go.Figure(go.Waterfall(
-            orientation="v",
-            measure=["absolute", "relative", "relative", "relative", "relative", "total"],
-            x=["PY CM", "Revenue", "COGS", "Fixed Cost", "Labor", "CY CM"],
-            y=[contrib_py, rev_impact, cogs_impact, fc_impact, labor_impact, None],
-            connector={"line": {"color": "#243041"}},
-            increasing={"marker": {"color": WFP, "line": {"width": 0}}},
-            decreasing={"marker": {"color": WFN, "line": {"width": 0}}},
-            totals={"marker": {"color": WFT, "line": {"width": 0}}},
-            text=[
-                fmt_m(contrib_py),
-                _delta_text(rev_impact),
-                _delta_text(cogs_impact),
-                _delta_text(fc_impact),
-                _delta_text(labor_impact),
-                fmt_m(contrib),
-            ],
-            textfont={"color": "#cbd5e1", "size": 10, "family": "DM Mono"},
-            textposition="outside",
-        ))
-        wf_yoy.update_layout(**PT, title="", showlegend=False, height=360)
-        st.plotly_chart(wf_yoy, use_container_width=True)
-        st.markdown(
-            '<div style="font-family:DM Mono,monospace;font-size:8px;color:#3a4560;margin-top:-0.5rem;">'
-            'COGS / Fixed Cost / Labor bars: green = costs fell (positive CM impact), '
-            'red = costs rose (negative CM impact)</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown('<div class="section-header">P&L Bridge — Current Period</div>', unsafe_allow_html=True)
+    wf = go.Figure(go.Waterfall(
+        orientation="v",
+        measure=["absolute", "relative", "relative", "total", "relative", "total"],
+        x=["Revenue", "COGS", "Fixed Cost", "Gross Margin", "Labor", "Contribution"],
+        y=[rev, -cogs, -fixed_cost, None, -labor, None],
+        connector={"line": {"color": "#243041"}},
+        increasing={"marker": {"color": WFP, "line": {"width": 0}}},
+        decreasing={"marker": {"color": WFN, "line": {"width": 0}}},
+        totals={"marker": {"color": WFT, "line": {"width": 0}}},
+        text=[
+            fmt_m(rev),
+            fmt_m(cogs),
+            fmt_m(fixed_cost),
+            f"{fmt_m(gm)} ({gm_pct:.1f}%)",
+            fmt_m(labor),
+            f"{fmt_m(contrib)} ({cm_pct:.1f}%)",
+        ],
+        textfont={"color": "#cbd5e1", "size": 10, "family": "DM Mono"},
+        textposition="outside",
+    ))
+    wf.update_layout(**PT, title="", showlegend=False, height=360)
+    st.plotly_chart(wf, use_container_width=True, key="ov_pl_bridge")
 
     st.markdown('<div class="section-header">Revenue Performance</div>', unsafe_allow_html=True)
 
@@ -481,12 +433,12 @@ def render_overview(ctx):
         fig_yoy.update_traces(line_width=2.5)
         fig_yoy.update_layout(**PT, title_font_color="#cbd5e1", xaxis_tickangle=-30)
         fig_yoy.update_yaxes(tickprefix="$", ticksuffix="M", tickformat=",.1f")
-        st.plotly_chart(fig_yoy, use_container_width=True)
+        st.plotly_chart(fig_yoy, use_container_width=True, key="ov_rev_raw_trend")
     else:
         curr_m = ctx["df_curr"].groupby(["yr", "month_num"])["revenue"].sum().reset_index()
         prior_m = ctx["df_prior"].groupby(["yr", "month_num"])["revenue"].sum().reset_index()
         idx_df = pd.DataFrame(build_index_rows(ctx, curr_m, prior_m, "revenue"))
-        render_index_chart(idx_df, "Revenue Index vs Prior Year — 100 = Same as PY", PT)
+        render_index_chart(idx_df, "Revenue Index vs Prior Year — 100 = Same as PY", PT, key="ov_rev_idx_trend")
 
     st.markdown('<div class="section-header">Service Line Profile</div>', unsafe_allow_html=True)
 
@@ -502,11 +454,11 @@ def render_overview(ctx):
 
     with radar_col1:
         fig_raw = _radar_chart(radar_df, selected_sl, "raw", cfo_colors, PT)
-        st.plotly_chart(fig_raw, use_container_width=True)
+        st.plotly_chart(fig_raw, use_container_width=True, key="ov_radar_raw")
 
     with radar_col2:
         fig_idx = _radar_chart(radar_df, selected_sl, "indexed", cfo_colors, PT)
-        st.plotly_chart(fig_idx, use_container_width=True)
+        st.plotly_chart(fig_idx, use_container_width=True, key="ov_radar_idx")
 
     radar_table = radar_df.copy()
     for c in ["revenue", "cogs", "fixed_cost", "labor", "gross_margin", "contribution"]:

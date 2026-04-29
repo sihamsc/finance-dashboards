@@ -15,10 +15,11 @@ import streamlit as st
 from src.utils.constants import METRIC_COLOR
 from src.utils.filters import clean_for_visuals
 from src.utils.formatters import fmt_m
-from src.utils.view_helpers import dist_chart, inline_trend
+from src.utils.theme import plotly_layout
+from src.utils.view_helpers import dist_chart, inline_trend, client_tile_chart
 
 
-_ACCENT = METRIC_COLOR["fixed_cost"]
+_ACCENT = "#60a5fa"
 
 
 def _narrative(ctx):
@@ -73,6 +74,8 @@ def render_fixed_cost(ctx):
     base  = clean_for_visuals(df_curr_decomp)
     prior = clean_for_visuals(df_prior)
 
+    chart_type = st.radio("View type", ["Bar", "Tile"], horizontal=True, key="fc_chart_type")
+
     # ── SERVICE LINE ──────────────────────────────────────────
     st.markdown('<div class="section-header">Fixed Cost by Service Line</div>', unsafe_allow_html=True)
 
@@ -81,8 +84,7 @@ def render_fixed_cost(ctx):
              .reset_index())
     fc_sl = fc_sl[fc_sl["fixed_cost"] > 0]
 
-    sl_chart = st.radio("Chart type", ["Bar", "Tile"], horizontal=True, key="fc_sl_chart")
-    dist_chart(fc_sl, "service_line_name", "fixed_cost", _ACCENT, PT, sl_chart, "fc_sl",
+    dist_chart(fc_sl, "service_line_name", "fixed_cost", _ACCENT, PT, chart_type, "fc_sl",
                value_label="Fixed Cost")
     inline_trend(ctx, base, prior, "fixed_cost", _ACCENT, PT, "fc_sl",
                  y_label="Fixed Cost ($M)")
@@ -104,7 +106,7 @@ def render_fixed_cost(ctx):
         fig_d.update_layout(**PT, title_font_color="#cbd5e1", legend_title_text="")
         fig_d.add_annotation(text=fmt_m(fixed_cost), x=0.5, y=0.5, showarrow=False,
                              font=dict(size=20, color="#f8fafc", family="DM Sans"))
-        st.plotly_chart(fig_d, use_container_width=True)
+        st.plotly_chart(fig_d, use_container_width=True, key="fc_alloc_donut")
 
     with col_trend:
         mth = (df_curr_decomp
@@ -120,7 +122,7 @@ def render_fixed_cost(ctx):
         fig_t.update_traces(line_width=2)
         fig_t.update_layout(**PT, title_font_color="#cbd5e1", xaxis_tickangle=-30)
         fig_t.update_yaxes(ticksuffix="%")
-        st.plotly_chart(fig_t, use_container_width=True)
+        st.plotly_chart(fig_t, use_container_width=True, key="fc_pct_trend")
 
     # ── CLIENT ────────────────────────────────────────────────
     st.markdown('<div class="section-header">Fixed Cost by Client</div>', unsafe_allow_html=True)
@@ -134,24 +136,30 @@ def render_fixed_cost(ctx):
 
     client_view = st.radio("Client view", ["Top 15", "Top 30", "All"],
                            horizontal=True, key="fc_client_view")
-    n_show = {"Top 15": 15, "Top 30": 30, "All": len(fc_cl)}[client_view]
-    cl_show = fc_cl.head(n_show).sort_values("fixed_cost", ascending=True).copy()
-    cl_show["_m"] = cl_show["fixed_cost"] / 1e6
+    n_show = {"Top 15": 15, "Top 30": 30, "All": None}[client_view]
 
-    fig_cl = go.Figure(go.Bar(
-        x=cl_show["_m"],
-        y=cl_show["top_level_parent_customer_name"],
-        orientation="h",
-        marker_color=_ACCENT,
-        marker_line_width=0,
-        text=cl_show.apply(lambda r: f"${r['_m']:.1f}M ({r['pct_rev']:.1f}% rev)", axis=1),
-        textposition="outside",
-        textfont=dict(size=10, color="#94a3b8", family="DM Sans"),
-    ))
-    fig_cl.update_layout(**PT, height=max(340, n_show * 26),
-                          margin=dict(l=0, r=130, t=20, b=0))
-    fig_cl.update_xaxes(tickprefix="$", ticksuffix="M")
-    st.plotly_chart(fig_cl, use_container_width=True)
+    if chart_type == "Tile":
+        client_tile_chart(fc_cl, "top_level_parent_customer_name", "fixed_cost",
+                          n_show, _ACCENT, "fc_client_tile", "Fixed Cost")
+    else:
+        cl_show = (fc_cl.head(n_show) if n_show else fc_cl).copy()
+        cl_show = cl_show.sort_values("fixed_cost", ascending=True)
+        cl_show["_m"] = cl_show["fixed_cost"] / 1e6
+        fig_cl = go.Figure(go.Bar(
+            x=cl_show["_m"],
+            y=cl_show["top_level_parent_customer_name"],
+            orientation="h",
+            marker_color=_ACCENT,
+            marker_line_width=0,
+            text=cl_show.apply(lambda r: f"${r['_m']:.1f}M ({r['pct_rev']:.1f}% rev)", axis=1),
+            textposition="outside",
+            textfont=dict(size=10, color="#94a3b8", family="DM Sans"),
+        ))
+        n_bar = n_show or len(cl_show)
+        fig_cl.update_layout(**plotly_layout(height=max(340, n_bar * 26),
+                                             margin=dict(l=0, r=130, t=20, b=0)))
+        fig_cl.update_xaxes(tickprefix="$", ticksuffix="M")
+        st.plotly_chart(fig_cl, use_container_width=True, key="fc_client_bar")
 
     # Client trend
     prior_filt = clean_for_visuals(df_prior)

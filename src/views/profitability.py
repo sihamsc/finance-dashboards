@@ -30,8 +30,8 @@ from src.utils.formatters import fmt_m
 from src.utils.view_helpers import dist_chart, inline_trend
 
 
-_GM_ACCENT = METRIC_COLOR["gross_margin"]
-_CM_ACCENT = METRIC_COLOR["contribution"]
+_GM_ACCENT = "#60a5fa"
+_CM_ACCENT = "#60a5fa"
 
 
 # ─────────────────────────────────────────────────────────────
@@ -108,7 +108,8 @@ def _contrib_sl_frame(df_gm, df_lab):
 # Dual-axis monthly charts (GM / CM)
 # ─────────────────────────────────────────────────────────────
 
-def _dual_chart(df, metric_col, pct_col, metric_label, pct_label, title, PT, accent, prior_df=None, month_order=None):
+def _dual_chart(df, metric_col, pct_col, metric_label, pct_label, title, PT, accent, key,
+                prior_df=None, month_order=None):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     x = "month" if "month" in df.columns else "accounting_period_start_date"
     fig.add_trace(go.Scatter(x=df[x], y=df[f"{metric_col}_m"], name=f"{metric_label} $M",
@@ -131,7 +132,7 @@ def _dual_chart(df, metric_col, pct_col, metric_label, pct_label, title, PT, acc
     fig.update_xaxes(tickangle=-30)
     if month_order:
         fig.update_xaxes(categoryorder="array", categoryarray=month_order)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=key)
 
 
 def _inline_dual_trend(ctx, curr_gm, prior_gm, curr_lab, prior_lab, metric, accent, PT, key_prefix):
@@ -148,14 +149,16 @@ def _inline_dual_trend(ctx, curr_gm, prior_gm, curr_lab, prior_lab, metric, acce
             pri_m  = _monthly_gm(prior_gm)
             pri_m["month"] = pri_m["month_num"].map(MONTH_MAP)
             _dual_chart(curr_m, "gross_margin", "gm_pct", "Gross Margin", "GM %",
-                        "", PT, accent, prior_df=pri_m, month_order=month_order)
+                        "", PT, accent, key=f"{key_prefix}_raw_trend",
+                        prior_df=pri_m, month_order=month_order)
         else:
             curr_m = _monthly_cm(curr_gm, curr_lab)
             curr_m["month"] = curr_m["month_num"].map(MONTH_MAP)
             pri_m  = _monthly_cm(prior_gm, prior_lab)
             pri_m["month"] = pri_m["month_num"].map(MONTH_MAP)
             _dual_chart(curr_m, "contribution", "cm_pct", "Contribution", "CM %",
-                        "", PT, accent, prior_df=pri_m, month_order=month_order)
+                        "", PT, accent, key=f"{key_prefix}_raw_trend",
+                        prior_df=pri_m, month_order=month_order)
     else:
         if is_gm:
             curr_agg = curr_gm.groupby(["yr","month_num"])["gross_margin"].sum().reset_index()
@@ -167,14 +170,14 @@ def _inline_dual_trend(ctx, curr_gm, prior_gm, curr_lab, prior_lab, metric, acce
             curr_agg = curr_m[["yr","month_num","contribution"]].copy()
             pri_agg  = pri_m[["yr","month_num","contribution"]].copy()
             idx_df = pd.DataFrame(build_index_rows(ctx, curr_agg, pri_agg, "contribution"))
-        render_index_chart(idx_df, "vs Prior Year — 100 = PY", PT)
+        render_index_chart(idx_df, "vs Prior Year — 100 = PY", PT, key=f"{key_prefix}_idx_trend")
 
 
 # ─────────────────────────────────────────────────────────────
 # Client bubble
 # ─────────────────────────────────────────────────────────────
 
-def _bubble(cl_plot, y_col, y_label, segment_display, med_rev, med_y, top_n, PT):
+def _bubble(cl_plot, y_col, y_label, segment_display, med_rev, med_y, top_n, PT, key):
     cl_plot = cl_plot.copy()
     cl_plot["_segment"] = cl_plot["segment"].map(segment_display).fillna(cl_plot["segment"])
 
@@ -214,7 +217,7 @@ def _bubble(cl_plot, y_col, y_label, segment_display, med_rev, med_y, top_n, PT)
                       height=520, legend_title_text="Segment")
     fig.update_xaxes(tickformat="$,.0s")
     fig.update_yaxes(ticksuffix="%")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=key)
 
 
 # ─────────────────────────────────────────────────────────────
@@ -313,7 +316,7 @@ def _render_sections(ctx, chart_type, metric, accent):
                                    "Margin" if is_gm else "Contribution"), axis=1
     )
     _bubble(cl_plot, pct_col, f"{'Gross Margin' if is_gm else 'Contribution'} %",
-            segment_map, med_rev, med_pct, top_n, PT)
+            segment_map, med_rev, med_pct, top_n, PT, key=f"profit_{metric}_bubble")
 
     # Client trend
     cl_opts = ["All"] + sorted(filtered["top_level_parent_customer_name"].dropna().unique().tolist())
@@ -392,7 +395,7 @@ def render_profitability(ctx):
         metric_mode = st.radio("Metric", ["Gross Margin", "Contribution"],
                                horizontal=True, key="profit_metric_mode")
     with ctl2:
-        chart_type = st.radio("Chart", ["Bar", "Tile"],
+        chart_type = st.radio("View type", ["Bar", "Tile"],
                               horizontal=True, key="profit_chart_type")
 
     st.divider()

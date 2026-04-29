@@ -12,10 +12,11 @@ import streamlit as st
 from src.utils.constants import COGS_HIGH_PCT, METRIC_COLOR
 from src.utils.filters import clean_for_visuals
 from src.utils.formatters import fmt_m
-from src.utils.view_helpers import dist_chart, inline_trend
+from src.utils.theme import plotly_layout
+from src.utils.view_helpers import dist_chart, inline_trend, client_tile_chart
 
 
-_ACCENT = METRIC_COLOR["cogs"]
+_ACCENT = "#60a5fa"
 
 
 def _narrative(ctx):
@@ -50,6 +51,8 @@ def render_cogs(ctx):
     base  = clean_for_visuals(df_curr_decomp)
     prior = clean_for_visuals(df_prior_decomp)
 
+    chart_type = st.radio("View type", ["Bar", "Tile"], horizontal=True, key="cogs_chart_type")
+
     # ── SERVICE LINE ──────────────────────────────────────────
     st.markdown('<div class="section-header">COGS by Service Line</div>', unsafe_allow_html=True)
 
@@ -58,8 +61,7 @@ def render_cogs(ctx):
                .reset_index())
     cogs_sl = cogs_sl[cogs_sl["cogs"] > 0]
 
-    sl_chart = st.radio("Chart type", ["Bar", "Tile"], horizontal=True, key="cogs_sl_chart")
-    dist_chart(cogs_sl, "service_line_name", "cogs", _ACCENT, PT, sl_chart, "cogs_sl")
+    dist_chart(cogs_sl, "service_line_name", "cogs", _ACCENT, PT, chart_type, "cogs_sl")
     inline_trend(ctx, base, prior, "cogs", _ACCENT, PT, "cogs_sl", y_label="COGS ($M)")
 
     # ── SUB-SERVICE LINE ──────────────────────────────────────
@@ -79,8 +81,7 @@ def render_cogs(ctx):
     if cogs_ssl.empty:
         st.info(f"No sub-service line data for {selected_sl}.")
     else:
-        ssl_chart = st.radio("Chart type", ["Bar", "Tile"], horizontal=True, key="cogs_ssl_chart")
-        dist_chart(cogs_ssl, "sub_service_line_name", "cogs", _ACCENT, PT, ssl_chart, "cogs_ssl")
+        dist_chart(cogs_ssl, "sub_service_line_name", "cogs", _ACCENT, PT, chart_type, "cogs_ssl")
         inline_trend(ctx, curr_sl, prior_sl, "cogs", _ACCENT, PT, "cogs_ssl",
                      y_label=f"COGS ($M) — {selected_sl}")
 
@@ -108,27 +109,33 @@ def render_cogs(ctx):
     client_view = st.radio("Client view", ["Top 15", "Top 30", "All > $100k"],
                            horizontal=True, key="cogs_client_view")
     if client_view == "All > $100k":
-        cl_show = cogs_cl[cogs_cl["cogs"] >= 100_000].copy()
+        cl_base = cogs_cl[cogs_cl["cogs"] >= 100_000].copy()
+        n_show  = None
     else:
-        cl_show = cogs_cl.head({"Top 15": 15, "Top 30": 30}[client_view]).copy()
+        cl_base = cogs_cl.copy()
+        n_show  = {"Top 15": 15, "Top 30": 30}[client_view]
 
-    cl_show["_m"]  = cl_show["cogs"] / 1e6
-    cl_show = cl_show.sort_values("cogs", ascending=True)
-
-    fig_cl = go.Figure(go.Bar(
-        x=cl_show["_m"],
-        y=cl_show["top_level_parent_customer_name"],
-        orientation="h",
-        marker_color=_ACCENT,
-        marker_line_width=0,
-        text=cl_show.apply(lambda r: f"${r['_m']:.1f}M ({r['pct_rev']:.1f}% rev)", axis=1),
-        textposition="outside",
-        textfont=dict(size=10, color="#94a3b8", family="DM Sans"),
-    ))
-    fig_cl.update_layout(**PT, height=max(340, len(cl_show) * 26),
-                          margin=dict(l=0, r=130, t=20, b=0))
-    fig_cl.update_xaxes(tickprefix="$", ticksuffix="M")
-    st.plotly_chart(fig_cl, use_container_width=True)
+    if chart_type == "Tile":
+        client_tile_chart(cl_base, "top_level_parent_customer_name", "cogs",
+                          n_show, _ACCENT, "cogs_client_tile", "COGS")
+    else:
+        cl_show = (cl_base.head(n_show) if n_show else cl_base).copy()
+        cl_show["_m"] = cl_show["cogs"] / 1e6
+        cl_show = cl_show.sort_values("cogs", ascending=True)
+        fig_cl = go.Figure(go.Bar(
+            x=cl_show["_m"],
+            y=cl_show["top_level_parent_customer_name"],
+            orientation="h",
+            marker_color=_ACCENT,
+            marker_line_width=0,
+            text=cl_show.apply(lambda r: f"${r['_m']:.1f}M ({r['pct_rev']:.1f}% rev)", axis=1),
+            textposition="outside",
+            textfont=dict(size=10, color="#94a3b8", family="DM Sans"),
+        ))
+        fig_cl.update_layout(**plotly_layout(height=max(340, len(cl_show) * 26),
+                                             margin=dict(l=0, r=130, t=20, b=0)))
+        fig_cl.update_xaxes(tickprefix="$", ticksuffix="M")
+        st.plotly_chart(fig_cl, use_container_width=True, key="cogs_client_bar")
 
     # Client trend
     prior_filt = clean_for_visuals(df_prior)

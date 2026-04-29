@@ -12,10 +12,11 @@ import streamlit as st
 from src.utils.constants import METRIC_COLOR
 from src.utils.filters import clean_for_visuals
 from src.utils.formatters import fmt_m
-from src.utils.view_helpers import dist_chart, inline_trend
+from src.utils.theme import plotly_layout
+from src.utils.view_helpers import dist_chart, inline_trend, client_tile_chart
 
 
-_ACCENT = METRIC_COLOR["labor"]
+_ACCENT = "#60a5fa"
 
 
 def _narrative(ctx):
@@ -72,6 +73,8 @@ def render_labor(ctx):
     enriched     = _labor_enriched(lab_base, rev_base)
     enriched_fil = _labor_enriched(clean_for_visuals(df_lab_curr), clean_for_visuals(df_curr))
 
+    chart_type = st.radio("View type", ["Bar", "Tile"], horizontal=True, key="lab_chart_type")
+
     # ── SERVICE LINE ──────────────────────────────────────────
     st.markdown('<div class="section-header">Labor by Service Line</div>', unsafe_allow_html=True)
 
@@ -79,8 +82,7 @@ def render_labor(ctx):
               .agg(labor=("labor","sum"), revenue=("revenue","sum"))
               .reset_index())
 
-    sl_chart = st.radio("Chart type", ["Bar", "Tile"], horizontal=True, key="lab_sl_chart")
-    dist_chart(lab_sl, "service_line_name", "labor", _ACCENT, PT, sl_chart, "lab_sl",
+    dist_chart(lab_sl, "service_line_name", "labor", _ACCENT, PT, chart_type, "lab_sl",
                value_label="Labor")
     # Labor uses "labour_cost" column in df_lab; rename to match inline_trend expectation
     lab_base_renamed  = lab_base.rename(columns={"labour_cost": "labor"})
@@ -104,8 +106,7 @@ def render_labor(ctx):
                .reset_index())
     lab_ssl = lab_ssl[lab_ssl["sub_service_line_name"] != "(blank)"]
 
-    ssl_chart = st.radio("Chart type", ["Bar", "Tile"], horizontal=True, key="lab_ssl_chart")
-    dist_chart(lab_ssl, "sub_service_line_name", "labor", _ACCENT, PT, ssl_chart, "lab_ssl",
+    dist_chart(lab_ssl, "sub_service_line_name", "labor", _ACCENT, PT, chart_type, "lab_ssl",
                value_label="Labor")
 
     curr_ssl_df  = lab_base_renamed  if selected_sl == "All" else lab_base_renamed[lab_base_renamed["service_line_name"] == selected_sl]
@@ -124,24 +125,30 @@ def render_labor(ctx):
 
     client_view = st.radio("Client view", ["Top 15", "Top 30", "All"],
                            horizontal=True, key="lab_client_view")
-    n_show = {"Top 15": 15, "Top 30": 30, "All": len(lab_cl)}[client_view]
-    cl_show = lab_cl.head(n_show).sort_values("labor", ascending=True)
+    n_show = {"Top 15": 15, "Top 30": 30, "All": None}[client_view]
 
-    cl_show["_m"] = cl_show["labor"] / 1e6
-    fig_cl = go.Figure(go.Bar(
-        x=cl_show["_m"],
-        y=cl_show["top_level_parent_customer_name"],
-        orientation="h",
-        marker_color=_ACCENT,
-        marker_line_width=0,
-        text=cl_show.apply(lambda r: f"${r['_m']:.1f}M ({r['pct_rev']:.1f}% rev)", axis=1),
-        textposition="outside",
-        textfont=dict(size=10, color="#94a3b8", family="DM Sans"),
-    ))
-    fig_cl.update_layout(**PT, height=max(340, n_show * 26),
-                          margin=dict(l=0, r=130, t=20, b=0))
-    fig_cl.update_xaxes(tickprefix="$", ticksuffix="M")
-    st.plotly_chart(fig_cl, use_container_width=True)
+    if chart_type == "Tile":
+        client_tile_chart(lab_cl, "top_level_parent_customer_name", "labor",
+                          n_show, _ACCENT, "lab_client_tile", "Labor")
+    else:
+        cl_show = (lab_cl.head(n_show) if n_show else lab_cl).copy()
+        cl_show = cl_show.sort_values("labor", ascending=True)
+        cl_show["_m"] = cl_show["labor"] / 1e6
+        fig_cl = go.Figure(go.Bar(
+            x=cl_show["_m"],
+            y=cl_show["top_level_parent_customer_name"],
+            orientation="h",
+            marker_color=_ACCENT,
+            marker_line_width=0,
+            text=cl_show.apply(lambda r: f"${r['_m']:.1f}M ({r['pct_rev']:.1f}% rev)", axis=1),
+            textposition="outside",
+            textfont=dict(size=10, color="#94a3b8", family="DM Sans"),
+        ))
+        n_bar = n_show or len(cl_show)
+        fig_cl.update_layout(**plotly_layout(height=max(340, n_bar * 26),
+                                             margin=dict(l=0, r=130, t=20, b=0)))
+        fig_cl.update_xaxes(tickprefix="$", ticksuffix="M")
+        st.plotly_chart(fig_cl, use_container_width=True, key="labor_client_bar")
 
     # Client labor trend
     lab_fil_ren  = clean_for_visuals(df_lab_curr).rename(columns={"labour_cost": "labor"})

@@ -14,7 +14,8 @@ from src.utils.charts import build_index_rows, render_index_chart
 from src.utils.constants import METRIC_COLOR
 from src.utils.filters import clean_for_visuals
 from src.utils.formatters import fmt_m
-from src.utils.view_helpers import dist_chart, inline_trend
+from src.utils.theme import plotly_layout
+from src.utils.view_helpers import dist_chart, inline_trend, client_tile_chart
 
 
 _ACCENT = METRIC_COLOR["revenue"]
@@ -61,6 +62,8 @@ def render_revenue(ctx):
     base   = clean_for_visuals(df_curr_decomp)
     prior  = clean_for_visuals(df_prior_decomp)
 
+    chart_type = st.radio("View type", ["Bar", "Tile"], horizontal=True, key="rev_chart_type")
+
     # ── SERVICE LINE ──────────────────────────────────────────
     st.markdown('<div class="section-header">Revenue by Service Line</div>', unsafe_allow_html=True)
 
@@ -69,8 +72,7 @@ def render_revenue(ctx):
     sl_data.columns = ["service_line_name", "revenue"]
     sl_data = sl_data[sl_data["revenue"] > 0]
 
-    sl_chart = st.radio("Chart type", ["Bar", "Tile"], horizontal=True, key="rev_sl_chart")
-    dist_chart(sl_data, "service_line_name", "revenue", _ACCENT, PT, sl_chart, "rev_sl")
+    dist_chart(sl_data, "service_line_name", "revenue", _ACCENT, PT, chart_type, "rev_sl")
     inline_trend(ctx, base, prior, "revenue", _ACCENT, PT, "rev_sl", y_label="Revenue ($M)")
 
     # ── SUB-SERVICE LINE ──────────────────────────────────────
@@ -89,8 +91,7 @@ def render_revenue(ctx):
     if ssl_data.empty:
         st.info(f"No sub-service line data for {selected_sl}.")
     else:
-        ssl_chart = st.radio("Chart type", ["Bar", "Tile"], horizontal=True, key="rev_ssl_chart")
-        dist_chart(ssl_data, "sub_service_line_name", "revenue", _ACCENT, PT, ssl_chart, "rev_ssl")
+        dist_chart(ssl_data, "sub_service_line_name", "revenue", _ACCENT, PT, chart_type, "rev_ssl")
         inline_trend(ctx, curr_sl, prior_sl, "revenue", _ACCENT, PT, "rev_ssl",
                      y_label=f"Revenue ($M) — {selected_sl}")
 
@@ -117,31 +118,36 @@ def render_revenue(ctx):
     client_view = st.radio("Client view", ["Top 15", "Top 30", "All > $100k"],
                            horizontal=True, key="rev_client_view")
     if client_view == "All > $100k":
-        rv_show = rv_cl[rv_cl["revenue"] >= 100_000].copy()
+        cl_base = rv_cl[rv_cl["revenue"] >= 100_000].copy()
+        n_show  = None
     else:
-        rv_show = rv_cl.head({"Top 15": 15, "Top 30": 30}[client_view]).copy()
+        cl_base = rv_cl.copy()
+        n_show  = {"Top 15": 15, "Top 30": 30}[client_view]
 
-    rv_show["_m"]   = rv_show["revenue"] / 1e6
-    rv_show["_pct"] = (rv_show["revenue"] / total_rev * 100).round(1) if total_rev else 0
-    rv_show = rv_show.sort_values("revenue", ascending=True)
-
-    fig_cl = go.Figure(go.Bar(
-        x=rv_show["_m"],
-        y=rv_show["top_level_parent_customer_name"],
-        orientation="h",
-        marker_color=_ACCENT,
-        marker_line_width=0,
-        text=rv_show.apply(lambda r: f"${r['_m']:.1f}M ({r['_pct']:.1f}%)", axis=1),
-        textposition="outside",
-        textfont=dict(size=10, color="#94a3b8", family="DM Sans"),
-    ))
-    fig_cl.update_layout(
-        **PT,
-        height=max(340, len(rv_show) * 26),
-        margin=dict(l=0, r=110, t=20, b=0),
-    )
-    fig_cl.update_xaxes(tickprefix="$", ticksuffix="M")
-    st.plotly_chart(fig_cl, use_container_width=True)
+    if chart_type == "Tile":
+        client_tile_chart(cl_base, "top_level_parent_customer_name", "revenue",
+                          n_show, _ACCENT, "rev_client_tile", "Revenue")
+    else:
+        rv_show = (cl_base.head(n_show) if n_show else cl_base).copy()
+        rv_show["_m"]   = rv_show["revenue"] / 1e6
+        rv_show["_pct"] = (rv_show["revenue"] / total_rev * 100).round(1) if total_rev else 0
+        rv_show = rv_show.sort_values("revenue", ascending=True)
+        fig_cl = go.Figure(go.Bar(
+            x=rv_show["_m"],
+            y=rv_show["top_level_parent_customer_name"],
+            orientation="h",
+            marker_color=_ACCENT,
+            marker_line_width=0,
+            text=rv_show.apply(lambda r: f"${r['_m']:.1f}M ({r['_pct']:.1f}%)", axis=1),
+            textposition="outside",
+            textfont=dict(size=10, color="#94a3b8", family="DM Sans"),
+        ))
+        fig_cl.update_layout(**plotly_layout(
+            height=max(340, len(rv_show) * 26),
+            margin=dict(l=0, r=110, t=20, b=0),
+        ))
+        fig_cl.update_xaxes(tickprefix="$", ticksuffix="M")
+        st.plotly_chart(fig_cl, use_container_width=True, key="rev_client_bar")
 
     # Client trend
     client_trend_base  = clean_for_visuals(df_curr_decomp)

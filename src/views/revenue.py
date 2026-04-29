@@ -228,11 +228,37 @@ def render_revenue(ctx):
     )
     sl_data = sl_data[sl_data["revenue"] > 0]
 
-    rev_sl_chart_type = st.radio("Chart type", ["Tile", "Bar"], horizontal=True, key="rev_sl_chart_type")
+    rev_sl_chart_type = st.radio("Chart type", ["Bar", "Tile"], horizontal=True, key="rev_sl_chart_type")
     if rev_sl_chart_type == "Tile":
         render_tile_chart(sl_data, "service_line_name", "revenue", "", BS, "rev_sl", PT)
     else:
-        render_bar(sl_data, label_col="service_line_name", value_col="revenue", title="", color_scale=BS, value_label="Revenue")
+        # YoY grouped bar — current vs prior year side by side
+        prior_sl_data = (
+            clean_for_visuals(ctx.get("df_prior_decomp", ctx["df_prior"]))
+            .groupby("service_line_name")["revenue"].sum().reset_index()
+            .rename(columns={"revenue": "revenue_py"})
+        )
+        sl_yoy = sl_data.merge(prior_sl_data, on="service_line_name", how="left").fillna(0)
+        sl_yoy["rev_m"]    = sl_yoy["revenue"]    / 1e6
+        sl_yoy["rev_py_m"] = sl_yoy["revenue_py"] / 1e6
+        sl_yoy = sl_yoy.sort_values("revenue", ascending=True)
+        fig_sl_yoy = go.Figure()
+        fig_sl_yoy.add_trace(go.Bar(
+            y=sl_yoy["service_line_name"], x=sl_yoy["rev_py_m"],
+            name="Prior Year", orientation="h",
+            marker_color=LP, marker_line_width=0, opacity=0.55,
+        ))
+        fig_sl_yoy.add_trace(go.Bar(
+            y=sl_yoy["service_line_name"], x=sl_yoy["rev_m"],
+            name="Current", orientation="h",
+            marker_color=LC, marker_line_width=0,
+        ))
+        fig_sl_yoy.update_layout(**PT, barmode="group", title_font_color="#cbd5e1",
+                                  height=max(280, len(sl_yoy)*48+60),
+                                  legend=dict(orientation="h", y=1.05, bgcolor="rgba(0,0,0,0)",
+                                              font=dict(color="#cbd5e1", size=10)))
+        fig_sl_yoy.update_xaxes(tickprefix="$", ticksuffix="M")
+        st.plotly_chart(fig_sl_yoy, use_container_width=True)
 
     st.markdown('<div class="section-header">Revenue by Sub-Service Line</div>', unsafe_allow_html=True)
 
@@ -256,7 +282,7 @@ def render_revenue(ctx):
     if ssl_data.empty:
         st.info(f"No sub service line data for {selected_sl}.")
     else:
-        rev_ssl_chart_type = st.radio("Chart type", ["Tile", "Bar"], horizontal=True, key="rev_ssl_chart_type")
+        rev_ssl_chart_type = st.radio("Chart type", ["Bar", "Tile"], horizontal=True, key="rev_ssl_chart_type")
         if rev_ssl_chart_type == "Tile":
             render_tile_chart(ssl_data, "sub_service_line_name", "revenue", f"— {selected_sl}", BS, "rev_ssl", PT)
         else:

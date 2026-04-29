@@ -13,6 +13,10 @@ import pandas as pd
 import streamlit as st
 
 from src.services.finance_service import build_clean_explorer_detail
+from src.utils.constants import (
+    GM_LOW_PCT, CM_NEGATIVE, COGS_FLAG_PCT, LABOR_HIGH_PCT, CM_STRONG_PCT,
+    CONC_TOP1, CONC_TOP3,
+)
 from src.utils.formatters import kpi, fmt_m, safe_pct, pct_text
 from src.utils.helpers import waterfall_for_slice
 from src.utils.filters import clean_for_visuals
@@ -232,20 +236,20 @@ def _signal_flags(grouped, level_col):
     top1_pct  = safe_pct(grouped.iloc[0]["revenue"], total_rev) if len(grouped) > 0 else 0
     top3_pct  = safe_pct(grouped.head(3)["revenue"].sum(), total_rev)
 
-    if top1_pct > 30:
-        flags.append(("red",   f"Concentration — top entity = {top1_pct:.0f}% of revenue"))
-    elif top3_pct > 60:
-        flags.append(("amber", f"Concentration — top 3 = {top3_pct:.0f}% of revenue"))
-    for _, r in grouped[grouped["cm_pct"] < 0].iterrows():
+    if top1_pct > CONC_TOP1:
+        flags.append(("red",   f"Concentration — top entity = {top1_pct:.0f}% of revenue (>{CONC_TOP1}% threshold)"))
+    elif top3_pct > CONC_TOP3:
+        flags.append(("amber", f"Concentration — top 3 = {top3_pct:.0f}% of revenue (>{CONC_TOP3}% threshold)"))
+    for _, r in grouped[grouped["cm_pct"] < CM_NEGATIVE].iterrows():
         flags.append(("red",   f"Negative CM — {str(r[level_col])[:25]} ({r['cm_pct']:.1f}%)"))
-    for _, r in grouped[(grouped["gm_pct"] < 20) & (grouped["gm_pct"] >= 0)].head(2).iterrows():
-        flags.append(("amber", f"Low GM — {str(r[level_col])[:25]} ({r['gm_pct']:.1f}%)"))
-    for _, r in grouped[grouped["cogs_pct"] > 65].head(2).iterrows():
-        flags.append(("amber", f"High COGS — {str(r[level_col])[:25]} ({r['cogs_pct']:.1f}% rev)"))
-    for _, r in grouped[grouped["labor_pct"] > 40].head(2).iterrows():
-        flags.append(("blue",  f"High Labor — {str(r[level_col])[:25]} ({r['labor_pct']:.0f}% rev)"))
-    for _, r in grouped[grouped["cm_pct"] > 50].head(2).iterrows():
-        flags.append(("green", f"Strong CM — {str(r[level_col])[:25]} ({r['cm_pct']:.0f}%)"))
+    for _, r in grouped[(grouped["gm_pct"] < GM_LOW_PCT) & (grouped["gm_pct"] >= 0)].head(2).iterrows():
+        flags.append(("amber", f"Low GM — {str(r[level_col])[:25]} ({r['gm_pct']:.1f}%, <{GM_LOW_PCT}% threshold)"))
+    for _, r in grouped[grouped["cogs_pct"] > COGS_FLAG_PCT].head(2).iterrows():
+        flags.append(("amber", f"High COGS — {str(r[level_col])[:25]} ({r['cogs_pct']:.1f}% rev, >{COGS_FLAG_PCT}% threshold)"))
+    for _, r in grouped[grouped["labor_pct"] > LABOR_HIGH_PCT].head(2).iterrows():
+        flags.append(("blue",  f"High Labor — {str(r[level_col])[:25]} ({r['labor_pct']:.0f}% rev, >{LABOR_HIGH_PCT}% threshold)"))
+    for _, r in grouped[grouped["cm_pct"] > CM_STRONG_PCT].head(2).iterrows():
+        flags.append(("green", f"Strong CM — {str(r[level_col])[:25]} ({r['cm_pct']:.0f}%, >{CM_STRONG_PCT}% threshold)"))
     if not flags:
         flags.append(("blue", "No material anomalies detected for current selection"))
 
@@ -299,13 +303,21 @@ def _mode_portfolio(exp_df, df_curr):
     st.markdown('<div class="ex-section">Key Signals</div>', unsafe_allow_html=True)
     _signal_flags(grouped_show, level_col)
 
-    # ── Heatmap — shared colorscale, per-column independent normalisation ────
-    st.markdown('<div class="ex-section">P&L Heatmap — per-column scaled</div>', unsafe_allow_html=True)
+    # ── Heatmap scale mode ────────────────────────────────────
+    hm_col1, hm_col2 = st.columns([3, 1])
+    with hm_col1:
+        st.markdown('<div class="ex-section">P&L Heatmap</div>', unsafe_allow_html=True)
+    with hm_col2:
+        scale_mode = st.radio("Scale", ["Per Column", "By Type"], horizontal=True, key="pv_hm_scale")
+
+    if scale_mode == "Per Column":
+        scale_help = "Each column independently normalised 0→1. Darker = higher within that column."
+    else:
+        scale_help = ("$ columns normalised together; % columns normalised together. "
+                      "Darker = higher relative to all columns of that type.")
     st.markdown(
-        '<p style="font-family:DM Mono,monospace;font-size:9px;color:#4a5570;margin-bottom:0.6rem;">'
-        'Each column is independently normalised 0→1 within its own range, then the same '
-        'colour scale is applied. Darker blue = higher value for that column. '
-        'Rows sorted by revenue.</p>',
+        f'<p style="font-family:DM Mono,monospace;font-size:9px;color:#4a5570;margin-bottom:0.6rem;">'
+        f'{scale_help} Rows sorted by revenue.</p>',
         unsafe_allow_html=True,
     )
 
@@ -316,23 +328,35 @@ def _mode_portfolio(exp_df, df_curr):
     n_rows    = len(entities)
     n_cols    = len(col_keys)
 
-    # Build z matrix (n_rows × n_cols) — each column normalised independently to [0,1]
-    # Raw values stored separately for annotation text
+    # Build z matrix (n_rows × n_cols)
     z_matrix   = []
-    raw_matrix = []   # raw_matrix[row][col]
+    raw_matrix = []
 
     for row_i, entity in enumerate(entities):
         z_matrix.append([])
         raw_matrix.append([])
 
-    for col_i, col_key in enumerate(col_keys):
-        raw_col = grouped_show[col_key].fillna(0).tolist()
-        col_min = min(raw_col)
-        col_max = max(raw_col)
-        col_rng = col_max - col_min if col_max != col_min else 1.0
-        for row_i, val in enumerate(raw_col):
-            z_matrix[row_i].append((val - col_min) / col_rng)
-            raw_matrix[row_i].append(val)
+    if scale_mode == "Per Column":
+        for col_i, col_key in enumerate(col_keys):
+            raw_col = grouped_show[col_key].fillna(0).tolist()
+            col_min = min(raw_col)
+            col_max = max(raw_col)
+            col_rng = col_max - col_min if col_max != col_min else 1.0
+            for row_i, val in enumerate(raw_col):
+                z_matrix[row_i].append((val - col_min) / col_rng)
+                raw_matrix[row_i].append(val)
+    else:
+        # "By Type": $ cols share one normalisation range; % cols share another
+        money_cols = [c for c in col_keys if col_money.get(c, False)]
+        pct_cols   = [c for c in col_keys if not col_money.get(c, False)]
+        money_max = max((grouped_show[c].fillna(0).max() for c in money_cols), default=1.0) or 1.0
+        pct_max   = max((grouped_show[c].fillna(0).max() for c in pct_cols),   default=1.0) or 1.0
+        for col_i, col_key in enumerate(col_keys):
+            raw_col  = grouped_show[col_key].fillna(0).tolist()
+            divisor  = money_max if col_money.get(col_key, False) else pct_max
+            for row_i, val in enumerate(raw_col):
+                z_matrix[row_i].append(max(0.0, val / divisor))
+                raw_matrix[row_i].append(val)
 
     # Build annotation text matrix — raw values, formatted
     annotations = []

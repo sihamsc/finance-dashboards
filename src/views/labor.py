@@ -112,11 +112,40 @@ def render_labor(ctx):
         .reset_index()
     )
 
-    labor_sl_chart_type = st.radio("Chart type", ["Tile", "Bar"], horizontal=True, key="labor_sl_chart_type")
-    if labor_sl_chart_type == "Tile":
+    labor_sl_chart_type = st.radio("Chart type", ["Bar", "Treemap"], horizontal=True, key="labor_sl_chart_type")
+    if labor_sl_chart_type == "Treemap":
         render_treemap(labor_sl, label_col="service_line_name", value_col="labor", title="", color_scale=BS, value_label="Labor")
     else:
-        render_bar(labor_sl, label_col="service_line_name", value_col="labor", title="", color_scale=BS, value_label="Labor")
+        # YoY grouped bar — current vs prior year
+        df_lab_prior = ctx.get("df_lab_prior")
+        if df_lab_prior is not None:
+            prior_lab_base = clean_for_visuals(df_lab_prior)
+            prior_sl = (prior_lab_base.groupby("service_line_name")["labour_cost"]
+                        .sum().reset_index().rename(columns={"labour_cost": "labor_py"}))
+            sl_yoy = labor_sl.merge(prior_sl, on="service_line_name", how="left").fillna(0)
+            sl_yoy["lab_m"]    = sl_yoy["labor"]    / 1e6
+            sl_yoy["lab_py_m"] = sl_yoy["labor_py"] / 1e6
+            sl_yoy = sl_yoy.sort_values("labor", ascending=True)
+            import plotly.graph_objects as _go
+            fig_lab_yoy = _go.Figure()
+            fig_lab_yoy.add_trace(_go.Bar(
+                y=sl_yoy["service_line_name"], x=sl_yoy["lab_py_m"],
+                name="Prior Year", orientation="h",
+                marker_color="#6b7280", marker_line_width=0, opacity=0.55,
+            ))
+            fig_lab_yoy.add_trace(_go.Bar(
+                y=sl_yoy["service_line_name"], x=sl_yoy["lab_m"],
+                name="Current", orientation="h",
+                marker_color="#fb923c", marker_line_width=0,
+            ))
+            fig_lab_yoy.update_layout(**PT, barmode="group", title_font_color="#cbd5e1",
+                                       height=max(280, len(sl_yoy)*48+60),
+                                       legend=dict(orientation="h", y=1.05, bgcolor="rgba(0,0,0,0)",
+                                                   font=dict(color="#cbd5e1", size=10)))
+            fig_lab_yoy.update_xaxes(tickprefix="$", ticksuffix="M")
+            st.plotly_chart(fig_lab_yoy, use_container_width=True)
+        else:
+            render_bar(labor_sl, label_col="service_line_name", value_col="labor", title="", color_scale=BS, value_label="Labor")
 
     # ── Sub Service Line tile chart, directly below SL chart ───
     st.markdown('<div class="section-header">Labor by Sub-Service Line</div>', unsafe_allow_html=True)
@@ -133,8 +162,8 @@ def render_labor(ctx):
     )
     labor_ssl = labor_ssl[labor_ssl["sub_service_line_name"] != "(blank)"]
 
-    labor_ssl_chart_type = st.radio("Chart type", ["Tile", "Bar"], horizontal=True, key="labor_ssl_chart_type")
-    if labor_ssl_chart_type == "Tile":
+    labor_ssl_chart_type = st.radio("Chart type", ["Bar", "Treemap"], horizontal=True, key="labor_ssl_chart_type")
+    if labor_ssl_chart_type == "Treemap":
         render_treemap(labor_ssl, label_col="sub_service_line_name", value_col="labor", title=f"— {'All' if selected_sl == 'All' else selected_sl}", color_scale=BS, value_label="Labor")
     else:
         render_bar(labor_ssl, label_col="sub_service_line_name", value_col="labor", title=f"— {'All' if selected_sl == 'All' else selected_sl}", color_scale=BS, value_label="Labor")

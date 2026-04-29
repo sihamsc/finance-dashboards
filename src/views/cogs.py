@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from src.utils.charts import build_index_rows, build_yoy_trend_df, render_bar, render_index_chart, render_treemap
+from src.utils.constants import COGS_HIGH_PCT
 from src.utils.filters import clean_for_visuals
 from src.utils.formatters import fmt_m, pct_text
 
@@ -99,11 +100,36 @@ def render_cogs(ctx):
         .reset_index()
     )
 
-    cogs_sl_chart_type = st.radio("Chart type", ["Tile", "Bar"], horizontal=True, key="cogs_sl_chart_type")
-    if cogs_sl_chart_type == "Tile":
+    cogs_sl_chart_type = st.radio("Chart type", ["Bar", "Treemap"], horizontal=True, key="cogs_sl_chart_type")
+    if cogs_sl_chart_type == "Treemap":
         render_treemap(cogs_sl, label_col="service_line_name", value_col="cogs", title="", color_scale=BS, value_label="COGS")
     else:
-        render_bar(cogs_sl, label_col="service_line_name", value_col="cogs", title="", color_scale=BS, value_label="COGS")
+        # Add YoY side-by-side grouped bar
+        prior_cogs_sl = (
+            clean_for_visuals(df_prior_decomp)
+            .groupby("service_line_name").agg(cogs_py=("cogs","sum")).reset_index()
+        )
+        cogs_sl_yoy = cogs_sl.merge(prior_cogs_sl, on="service_line_name", how="left").fillna(0)
+        cogs_sl_yoy["cogs_m"]    = cogs_sl_yoy["cogs"]    / 1e6
+        cogs_sl_yoy["cogs_py_m"] = cogs_sl_yoy["cogs_py"] / 1e6
+        cogs_sl_yoy = cogs_sl_yoy.sort_values("cogs", ascending=True)
+        fig_yoy_sl = go.Figure()
+        fig_yoy_sl.add_trace(go.Bar(
+            y=cogs_sl_yoy["service_line_name"], x=cogs_sl_yoy["cogs_py_m"],
+            name="Prior Year", orientation="h",
+            marker_color=LP, marker_line_width=0, opacity=0.55,
+        ))
+        fig_yoy_sl.add_trace(go.Bar(
+            y=cogs_sl_yoy["service_line_name"], x=cogs_sl_yoy["cogs_m"],
+            name="Current", orientation="h",
+            marker_color="#4c78a8", marker_line_width=0,
+        ))
+        fig_yoy_sl.update_layout(**PT, barmode="group", title_font_color="#cbd5e1",
+                                  height=max(280, len(cogs_sl_yoy)*48+60),
+                                  legend=dict(orientation="h", y=1.05, bgcolor="rgba(0,0,0,0)",
+                                              font=dict(color="#cbd5e1", size=10)))
+        fig_yoy_sl.update_xaxes(tickprefix="$", ticksuffix="M")
+        st.plotly_chart(fig_yoy_sl, use_container_width=True)
 
     # ── Sub Service Line tile chart, directly below SL chart ───
     st.markdown('<div class="section-header">COGS by Sub-Service Line</div>', unsafe_allow_html=True)
@@ -120,8 +146,8 @@ def render_cogs(ctx):
     )
     cogs_ssl = cogs_ssl[cogs_ssl["sub_service_line_name"] != "(blank)"]
 
-    cogs_ssl_chart_type = st.radio("Chart type", ["Tile", "Bar"], horizontal=True, key="cogs_ssl_chart_type")
-    if cogs_ssl_chart_type == "Tile":
+    cogs_ssl_chart_type = st.radio("Chart type", ["Bar", "Treemap"], horizontal=True, key="cogs_ssl_chart_type")
+    if cogs_ssl_chart_type == "Treemap":
         render_treemap(cogs_ssl, label_col="sub_service_line_name", value_col="cogs", title=f"— {'All' if selected_sl == 'All' else selected_sl}", color_scale=BS, value_label="COGS")
     else:
         render_bar(cogs_ssl, label_col="sub_service_line_name", value_col="cogs", title=f"— {'All' if selected_sl == 'All' else selected_sl}", color_scale=BS, value_label="COGS")
@@ -185,14 +211,14 @@ def render_cogs(ctx):
     ).round(1)
     cogs_cl = cogs_cl.sort_values("cogs", ascending=False)
 
-    high_count = (cogs_cl["pct_of_rev"] > 60).sum()
+    high_count = (cogs_cl["pct_of_rev"] > COGS_HIGH_PCT).sum()
     if high_count > 0:
         st.markdown(
-            f"""
-            <div style="font-family:DM Mono,monospace;font-size:9px;color:#f87171;margin-bottom:0.5rem;">
-                ⚠ {high_count} client{"s" if high_count > 1 else ""} with COGS >60% of revenue
-            </div>
-            """,
+            f'<div style="background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.2);'
+            f'border-radius:8px;padding:0.4rem 0.8rem;margin-bottom:0.6rem;'
+            f'font-family:DM Mono,monospace;font-size:9px;color:#f87171;">'
+            f'⚠ {high_count} client{"s" if high_count > 1 else ""} with COGS >{COGS_HIGH_PCT}% of revenue — '
+            f'review cost structure or pricing</div>',
             unsafe_allow_html=True,
         )
 

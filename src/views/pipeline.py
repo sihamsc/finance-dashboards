@@ -131,10 +131,14 @@ def render_pipeline(ctx):
     st.download_button("Download CSV", ptbl.to_csv(index=False).encode(),
                        "pipeline_detail.csv","text/csv",key="pipe_dl")
 
-    # Data gap note
     st.markdown(
-        '<div style="font-family:DM Mono,monospace;font-size:8px;color:#2a3045;margin-top:0.5rem;">'
-        'Note: Pipeline stage names are custom (Q1 2025 etc.) — standard Stage 1–6 mapping pending confirmation from Chris/John.'
-        '</div>',
+        '<div style="background:#0a0d14;border:1px solid #1b2230;border-left:3px solid #fb923c;'
+        'border-radius:8px;padding:0.6rem 1rem;margin-top:1rem;">'
+        '<div style="font-family:DM Mono,monospace;font-size:8px;color:#4a5570;letter-spacing:0.12em;'
+        'text-transform:uppercase;margin-bottom:0.3rem;">Data Gaps</div>'
+        '<div style="font-family:DM Sans,sans-serif;font-size:11px;color:#9ca3af;line-height:1.6;">'
+        '⚠ Stage names are custom labels (e.g. "Q1 2025") — standard Stage 1–6 mapping pending from Chris/John<br>'
+        '⚠ Deal owner / account manager not currently in pipeline data — can\'t split by rep'
+        '</div></div>',
         unsafe_allow_html=True,
     )

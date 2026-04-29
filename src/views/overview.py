@@ -389,37 +389,77 @@ def render_overview(ctx):
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="section-header">P&L Bridge</div>', unsafe_allow_html=True)
+    bridge_col1, bridge_col2 = st.columns(2)
 
-    wf = go.Figure(go.Waterfall(
-        orientation="v",
-        measure=["absolute", "relative", "relative", "total", "relative", "total"],
-        x=["Revenue", "COGS", "Fixed Cost", "Gross Margin", "Labor", "Contribution"],
-        y=[rev, -cogs, -fixed_cost, None, -labor, None],
-        connector={"line": {"color": "#243041"}},
-        increasing={"marker": {"color": WFP, "line": {"width": 0}}},
-        decreasing={"marker": {"color": WFN, "line": {"width": 0}}},
-        totals={"marker": {"color": WFT, "line": {"width": 0}}},
-        text=[
-            fmt_m(rev),
-            fmt_m(cogs),
-            fmt_m(fixed_cost),
-            f"{fmt_m(gm)} ({gm_pct:.1f}% GM)",
-            fmt_m(labor),
-            f"{fmt_m(contrib)} ({cm_pct:.1f}% CM)",
-        ],
-        textfont={"color": "#cbd5e1", "size": 10, "family": "DM Mono"},
-        textposition="outside",
-    ))
+    with bridge_col1:
+        st.markdown('<div class="section-header">P&L Bridge — Current Period</div>', unsafe_allow_html=True)
+        wf = go.Figure(go.Waterfall(
+            orientation="v",
+            measure=["absolute", "relative", "relative", "total", "relative", "total"],
+            x=["Revenue", "COGS", "Fixed Cost", "Gross Margin", "Labor", "Contribution"],
+            y=[rev, -cogs, -fixed_cost, None, -labor, None],
+            connector={"line": {"color": "#243041"}},
+            increasing={"marker": {"color": WFP, "line": {"width": 0}}},
+            decreasing={"marker": {"color": WFN, "line": {"width": 0}}},
+            totals={"marker": {"color": WFT, "line": {"width": 0}}},
+            text=[
+                fmt_m(rev),
+                fmt_m(cogs),
+                fmt_m(fixed_cost),
+                f"{fmt_m(gm)} ({gm_pct:.1f}%)",
+                fmt_m(labor),
+                f"{fmt_m(contrib)} ({cm_pct:.1f}%)",
+            ],
+            textfont={"color": "#cbd5e1", "size": 10, "family": "DM Mono"},
+            textposition="outside",
+        ))
+        wf.update_layout(**PT, title="", showlegend=False, height=360)
+        st.plotly_chart(wf, use_container_width=True)
 
-    wf.update_layout(
-        **PT,
-        title="",
-        title_font_color="#cbd5e1",
-        showlegend=False,
-    )
+    with bridge_col2:
+        st.markdown('<div class="section-header">YoY Change — What Drove the Shift?</div>', unsafe_allow_html=True)
+        rev_py    = ctx["rev_py"]
+        cogs_py   = ctx["cogs_py"]
+        fc_py     = ctx["fixed_cost_py"]
+        labor_py  = ctx["labor_py"]
+        contrib_py = ctx["contrib_py"]
 
-    st.plotly_chart(wf, use_container_width=True)
+        rev_impact   = rev - rev_py
+        cogs_impact  = -(cogs - cogs_py)
+        fc_impact    = -(fixed_cost - fc_py)
+        labor_impact = -(labor - labor_py)
+
+        def _delta_text(v):
+            return f"+{fmt_m(v)}" if v >= 0 else fmt_m(v)
+
+        wf_yoy = go.Figure(go.Waterfall(
+            orientation="v",
+            measure=["absolute", "relative", "relative", "relative", "relative", "total"],
+            x=["PY CM", "Revenue", "COGS", "Fixed Cost", "Labor", "CY CM"],
+            y=[contrib_py, rev_impact, cogs_impact, fc_impact, labor_impact, None],
+            connector={"line": {"color": "#243041"}},
+            increasing={"marker": {"color": WFP, "line": {"width": 0}}},
+            decreasing={"marker": {"color": WFN, "line": {"width": 0}}},
+            totals={"marker": {"color": WFT, "line": {"width": 0}}},
+            text=[
+                fmt_m(contrib_py),
+                _delta_text(rev_impact),
+                _delta_text(cogs_impact),
+                _delta_text(fc_impact),
+                _delta_text(labor_impact),
+                fmt_m(contrib),
+            ],
+            textfont={"color": "#cbd5e1", "size": 10, "family": "DM Mono"},
+            textposition="outside",
+        ))
+        wf_yoy.update_layout(**PT, title="", showlegend=False, height=360)
+        st.plotly_chart(wf_yoy, use_container_width=True)
+        st.markdown(
+            '<div style="font-family:DM Mono,monospace;font-size:8px;color:#3a4560;margin-top:-0.5rem;">'
+            'COGS / Fixed Cost / Labor bars: green = costs fell (positive CM impact), '
+            'red = costs rose (negative CM impact)</div>',
+            unsafe_allow_html=True,
+        )
 
     st.markdown('<div class="section-header">Revenue Performance</div>', unsafe_allow_html=True)
 

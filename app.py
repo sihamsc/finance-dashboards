@@ -54,9 +54,8 @@ from src.views.overview     import render_overview
 from src.views.revenue      import render_revenue
 from src.views.cogs         import render_cogs
 from src.views.fixed_cost   import render_fixed_cost
-from src.views.margin       import render_margin
-from src.views.labor        import render_labor
-from src.views.contribution import render_contribution
+from src.views.profitability import render_profitability
+from src.views.labor         import render_labor
 from src.views.explorer     import render_explorer
 from src.views.pipeline     import render_pipeline
 from src.views.targets      import render_targets
@@ -403,14 +402,13 @@ context = {
 # ------------------------------------------------------------
 # Tabs
 # ------------------------------------------------------------
-tab_ov, tab_rev, tab_cogs, tab_fc, tab_margin, tab_labor, tab_contrib, tab_explorer, tab_pipe, tab_tgt = st.tabs([
+tab_ov, tab_rev, tab_cogs, tab_fc, tab_profit, tab_labor, tab_explorer, tab_pipe, tab_tgt = st.tabs([
     "Overview",
     "Revenue",
     "COGS",
     "Fixed Cost",
-    "Margin",
+    "Profitability",
     "Labor",
-    "Contribution",
     "Insight Explorer",
     "Pipeline",
     "Targets",
@@ -428,14 +426,11 @@ with tab_cogs:
 with tab_fc:
     render_fixed_cost(context)
 
-with tab_margin:
-    render_margin(context)
+with tab_profit:
+    render_profitability(context)
 
 with tab_labor:
     render_labor(context)
-
-with tab_contrib:
-    render_contribution(context)
 
 with tab_explorer:
     render_explorer(context)

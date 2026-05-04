@@ -11,7 +11,7 @@ QUERIES_DIR = BASE_DIR / "src" / "queries"
 def _run(filename):
     sql = (QUERIES_DIR / filename).read_text()
     with engine.connect() as conn:
-        conn.execute(text("SET statement_timeout = '60s'"))
+        conn.execute(text("SET statement_timeout = '300s'"))
         return pd.read_sql(text(sql), conn)
 
 def get_gross_margin(year_from: int = 2024) -> pd.DataFrame:
